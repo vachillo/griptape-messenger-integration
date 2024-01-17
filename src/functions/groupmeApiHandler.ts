@@ -3,11 +3,14 @@ import * as df from 'durable-functions';
 import axios from 'axios';
 import { User } from './types';
 
-const GROUPME_API_TOKEN = process.env.GROUPME_API_TOKEN || 'GROUPME_API_TOKEN not set';
-const GROUPME_BOT_ID = process.env.GROUPME_BOT_ID || 'GROUPME_BOT_ID not set';
+const GROUPME_API_TOKEN = process.env.GROUPME_API_TOKEN
+const GROUPME_BOT_ID = process.env.GROUPME_BOT_ID
+const GROUPME_USER_ID_FIELD = process.env.GROUPME_USER_ID_FIELD
 
-const TRIGGER = "@dabotby ";
-const REGISTER = `${TRIGGER}lets go`
+const COSMOSDB_DATABASE_NAME = process.env.COSMOSDB_DATABASE_NAME
+const COSMOSDB_CONTAINER_NAME = process.env.COSMOSDB_CONTAINER_NAME
+
+const TRIGGER_PHRASE = process.env.TRIGGER_PHRASE
 
 const SESSION_TIMEOUT_MS = 5 * 60 * 1000;
 
@@ -29,16 +32,16 @@ interface GroupmeMessage {
 }
 
 const cosmosInput = input.cosmosDB({
-    databaseName: 'matt-db',
-    containerName: 'dabotby',
-    sqlQuery: 'SELECT * FROM c WHERE c.id = {sender_id}',
-    partitionKey: '{sender_id}',
+    databaseName: COSMOSDB_DATABASE_NAME,
+    containerName: COSMOSDB_CONTAINER_NAME,
+    sqlQuery: `SELECT * FROM c WHERE c.id = {${GROUPME_USER_ID_FIELD}}`,
+    partitionKey: `{${GROUPME_USER_ID_FIELD}}`,
     connection: 'COSMOSDB_CONNECTION_STRING',
 });
 
 const cosmosOuput = output.cosmosDB({
-    databaseName: 'matt-db',
-    containerName: 'dabotby',
+    databaseName: COSMOSDB_DATABASE_NAME,
+    containerName: COSMOSDB_CONTAINER_NAME,
     connection: 'COSMOSDB_CONNECTION_STRING',
 });
 
@@ -46,7 +49,7 @@ const groupmeMessageHandler: HttpHandler = async (request: HttpRequest, context:
     const body: GroupmeMessage = <GroupmeMessage>(await request.json());
     context.log(`Incoming message: ${JSON.stringify(body)}`);
 
-    if (!body.text.startsWith(TRIGGER)) {
+    if (!body.text.startsWith(TRIGGER_PHRASE)) {
         context.log(`Message ${body.text} does not start with trigger, ignoring`);
         return {
             status: 200,
@@ -66,18 +69,18 @@ const groupmeMessageHandler: HttpHandler = async (request: HttpRequest, context:
             session_id: '',
             updated_at: Date.now(),
         }
-        body.text = body.text.replace(REGISTER, '');
-        body.text = "give me a haiku because you're my new friend. also: " + body.text;
+        body.text = "I am new! Nice to meet you. also: " + body.text;
         context.extraOutputs.set(cosmosOuput, user);
     }
 
     // strip trigger from body.text
-    body.text = body.text.replace(TRIGGER, '');
+    body.text = body.text.replace(TRIGGER_PHRASE, '');
 
     const client = df.getClient(context);
     const griptapeRequest = {
         args: [body.text],
     };
+    // timeout the session if it's been more than 5 minutes since the last message
     if (user.session_id) {
         if (Date.now() - user.updated_at > SESSION_TIMEOUT_MS) {
             user.session_id = '';
@@ -115,7 +118,9 @@ app.http('groupmeMessagePost', {
     methods: ['POST'],
     handler: async (request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> => {
         // chunk the run output into 800 character chunks
-        const text = await request.text()
+        const req = await request.json()
+        const user: User = req['user']
+        const text = req['text']
         const numChunks = Math.ceil(text.length / 800)
         const chunks = new Array(numChunks)
     
@@ -126,7 +131,7 @@ app.http('groupmeMessagePost', {
         for (const chunk of chunks) {
             const body = {
                 "bot_id": GROUPME_BOT_ID,
-                "text": chunk,
+                "text": `@${user.name} ${chunk}`,
             }
             await groupmeClient.post('/bots/post', body);
         }

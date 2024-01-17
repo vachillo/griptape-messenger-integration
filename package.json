@@ -10,7 +10,7 @@
     "prestart": "npm run clean && npm run build",
     "start": "npm run build && func start",
     "test": "echo \"No tests yet...\"",
-    "deploy": "npm run build && func azure functionapp publish matt-app -i --subscription 60a61476-bd26-4cc2-a7b2-549cafbad00a"
+    "deploy:azure": "source ./.env && npm run build && func azure functionapp publish ${AZURE_FUNCTION_APP_NAME} -i"
   },
   "dependencies": {
     "@azure/functions": "^4.0.0",

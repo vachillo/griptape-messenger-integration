@@ -5,7 +5,11 @@ import { User } from './types';
 import { GriptapeRequest } from './griptapeApiWrapper';
 
 const WEBSITE_HOSTNAME = process.env.WEBSITE_HOSTNAME;
-const GRIPTAPE_BASE_URL = `https://${WEBSITE_HOSTNAME}/api/runs`;
+const FUNCTIONS_BASE_URL = `${process.env.IS_LOCAL === "true" ? 'http' : 'https'}://${WEBSITE_HOSTNAME}/api`;
+const GRIPTAPE_WRAPPER_BASE_URL = `${FUNCTIONS_BASE_URL}/runs`;
+
+const COSMOSDB_DATABASE_NAME = process.env.COSMOSDB_DATABASE_NAME;
+const COSMOSDB_CONTAINER_NAME = process.env.COSMOSDB_CONTAINER_NAME;
 
 export interface Input {
     griptapeRequest: GriptapeRequest;
@@ -14,8 +18,8 @@ export interface Input {
 }
 
 const cosmosOutput = output.cosmosDB({
-    databaseName: 'matt-db',
-    containerName: 'dabotby',
+    databaseName: COSMOSDB_DATABASE_NAME,
+    containerName: COSMOSDB_CONTAINER_NAME,
     connection: 'COSMOSDB_CONNECTION_STRING',
 })
 
@@ -33,11 +37,10 @@ df.app.activity('saveUserActivity', {
 const griptapeOrchestrator: OrchestrationHandler = function* (context: OrchestrationContext) {
     const input: Input = context.df.getInput<Input>();
     context.log(`orch Input: ${JSON.stringify(input)}`);
-    context.log(`GRIPATE_BASE_URL: ${GRIPTAPE_BASE_URL}`);
     let griptapeRequest = input.griptapeRequest;
     const run_output = yield context.df.callHttp({
         method: 'POST',
-        url: GRIPTAPE_BASE_URL,
+        url: GRIPTAPE_WRAPPER_BASE_URL,
         body: griptapeRequest,
         enablePolling: true,
     });
@@ -45,8 +48,11 @@ const griptapeOrchestrator: OrchestrationHandler = function* (context: Orchestra
     context.log(`Run output: ${JSON.stringify(run)}`);
     yield context.df.callHttp({
         method: 'POST',
-        url: `https://${WEBSITE_HOSTNAME}/api/message-post-${input.type}`,
-        body: run['output']['value'],
+        url: `${FUNCTIONS_BASE_URL}/message-post-${input.type}`,
+        body: {
+            user: input.user,
+            text: run['output']['value']
+        },
         enablePolling: false,
     })
 
