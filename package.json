@@ -1,0 +1,25 @@
+{
+  "name": "dabotby",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/src/functions/*.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "clean": "rimraf dist",
+    "prestart": "npm run clean && npm run build",
+    "start": "npm run build && func start",
+    "test": "echo \"No tests yet...\"",
+    "deploy": "npm run build && func azure functionapp publish matt-app -i --subscription 60a61476-bd26-4cc2-a7b2-549cafbad00a"
+  },
+  "dependencies": {
+    "@azure/functions": "^4.0.0",
+    "durable-functions": "^3.0.0"
+  },
+  "devDependencies": {
+    "azure-functions-core-tools": "^4.x",
+    "@types/node": "18.x",
+    "typescript": "^4.0.0",
+    "rimraf": "^5.0.0"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+    "AzureWebJobsFeatureFlags": "EnableWorkerIndexing",
+    "AzureWebJobsStorage": "",
+    "GRIPTAPE_API_KEY": "",
+    "GRIPTAPE_APP_ID": "",
+    "COSMOSDB_CONNECTION_STRING": "",
+    "GROUME_API_TOKEN": "",
+    "GROUPME_BOT_ID": ""
+  }
+}
