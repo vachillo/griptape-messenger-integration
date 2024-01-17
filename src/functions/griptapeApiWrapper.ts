@@ -4,7 +4,7 @@ import axios from 'axios';
 
 const GRIPTAPE_API_KEY = process.env.GRIPTAPE_API_KEY;
 const GRIPTAPE_APP_ID = process.env.GRIPTAPE_APP_ID;
-const GRIPTAPE_API_URL = `https://api.cloud-preview.griptape.ai`;
+const GRIPTAPE_API_URL = process.env.GRIPTAPE_API_URL;
 const GRIPTAPE_API_HEADERS = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GRIPTAPE_API_KEY}` };
 const client = axios.create({ baseURL: GRIPTAPE_API_URL, headers: GRIPTAPE_API_HEADERS });
 
