@@ -128,10 +128,16 @@ app.http('groupmeMessagePost', {
             chunks[i] = text.substring(o, Math.min(o+800, text.length-1))
         }
         // send each chunk as a separate message to groupme
-        for (const chunk of chunks) {
+        for (let i = 0; i < chunks.length; i++) {
+            let text;
+            if (i == 0) {
+                text = `@${user.name} ${chunks[i]}`
+            } else {
+                text = chunks[i]
+            }
             const body = {
                 "bot_id": GROUPME_BOT_ID,
-                "text": `@${user.name} ${chunk}`,
+                "text": text,
             }
             await groupmeClient.post('/bots/post', body);
         }

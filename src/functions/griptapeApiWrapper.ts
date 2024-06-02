@@ -1,5 +1,6 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import axios from 'axios';
+import { randomUUID } from "crypto";
 
 
 const GRIPTAPE_API_KEY = process.env.GRIPTAPE_API_KEY;
@@ -15,16 +16,20 @@ export interface GriptapeRequest {
 
 export async function createRun(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
     const req = <GriptapeRequest>await request.json();
-    context.log(`Incoming create run request: ${req}`)
+    context.log(`Incoming create run request: ${JSON.stringify(req)}`)
+
+    if (!req.sessionId) {
+        req['sessionId'] = randomUUID();
+    }
+    
+    req['args'].push(req.sessionId);
 
     const body = {
         args: req['args'],
     }
-    if (req.sessionId) {
-        body['session_id'] = req.sessionId;
-    }
 
-    const res = await client.post(`/apps/${GRIPTAPE_APP_ID}/runs`, body);
+    const res = await client.post(`/structures/${GRIPTAPE_APP_ID}/runs`, body);
+    res.data['session_id'] = res.data['args'][res.data['args'].length - 1];
     context.log(`Griptape response: ${JSON.stringify(res.data)}`);
 
     return {
@@ -32,7 +37,7 @@ export async function createRun(request: HttpRequest, context: InvocationContext
         status: 202,
         headers: {
             'Retry-After': '5',
-            'Location': `${request.url}/${res.data['run_id']}`,
+            'Location': `${request.url}/${res.data['structure_run_id']}`,
         },
     };
 };
@@ -42,8 +47,9 @@ export async function getRun(request: HttpRequest, context: InvocationContext): 
 
     const runId = request.params.runId;
 
-    const res = await client.get(`/runs/${runId}`);
+    const res = await client.get(`/structure-runs/${runId}`);
     const data = res.data;
+    res.data['session_id'] = res.data['args'][res.data['args'].length - 1];
     context.log(`Griptape response: ${JSON.stringify(data)}`);
 
     return {
