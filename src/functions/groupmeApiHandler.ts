@@ -47,7 +47,6 @@ const cosmosOuput = output.cosmosDB({
 
 const groupmeMessageHandler: HttpHandler = async (request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> => {
     const body: GroupmeMessage = <GroupmeMessage>(await request.json());
-    context.log(`Incoming message: ${JSON.stringify(body)}`);
 
     if (!body.text.startsWith(TRIGGER_PHRASE)) {
         context.log(`Message ${body.text} does not start with trigger, ignoring`);
@@ -84,8 +83,6 @@ const groupmeMessageHandler: HttpHandler = async (request: HttpRequest, context:
     if (user.session_id) {
         if (Date.now() - user.updated_at > SESSION_TIMEOUT_MS) {
             user.session_id = '';
-        } else {
-            griptapeRequest['sessionId'] = user.session_id;
         }
     }
     const input = {

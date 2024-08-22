@@ -1,12 +1,13 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import axios from 'axios';
-import { randomUUID } from "crypto";
-
+import { User } from "./types";
 
 const GRIPTAPE_API_KEY = process.env.GRIPTAPE_API_KEY;
 const GRIPTAPE_APP_ID = process.env.GRIPTAPE_APP_ID;
 const GRIPTAPE_API_URL = process.env.GRIPTAPE_API_URL;
 const GRIPTAPE_API_HEADERS = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GRIPTAPE_API_KEY}` };
+const GRIPTAPE_API_SESSION_VAR = "GT_CLOUD_THREAD_ID";
+
 const client = axios.create({ baseURL: GRIPTAPE_API_URL, headers: GRIPTAPE_API_HEADERS });
 
 export interface GriptapeRequest {
@@ -14,26 +15,41 @@ export interface GriptapeRequest {
     sessionId?: string;
 }
 
+export async function createThread(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+    let req = <User>await request.json();
+    context.log(`Incoming create thread request: ${JSON.stringify(req)}`)
+    const threadReq = {
+        name: "dabotbyThread",
+        metadata: {
+            "type": "ConversationMemory",
+        }
+    }
+    const res = await client.post(`/threads`, threadReq);
+    req['session_id'] = res.data['thread_id'];
+
+    return {
+        jsonBody: req,
+        status: res.status,
+    };
+}
+
 export async function createRun(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
     const req = <GriptapeRequest>await request.json();
     context.log(`Incoming create run request: ${JSON.stringify(req)}`)
-
-    if (!req.sessionId) {
-        req['sessionId'] = randomUUID();
-    }
-    
-    req['args'].push(req.sessionId);
+    const args = req.args.filter(arg => arg !== 'sessionId');
 
     const body = {
-        args: req['args'],
+        args: req.args,
+        env: {
+            [GRIPTAPE_API_SESSION_VAR]: req.sessionId,
+        }
     }
 
     const res = await client.post(`/structures/${GRIPTAPE_APP_ID}/runs`, body);
-    res.data['session_id'] = res.data['args'][res.data['args'].length - 1];
-    context.log(`Griptape response: ${JSON.stringify(res.data)}`);
-
+    let response = res.data;
+    response['session_id'] = req['sessionId'];
     return {
-        jsonBody: res.data,
+        jsonBody: response,
         status: 202,
         headers: {
             'Retry-After': '5',
@@ -49,12 +65,10 @@ export async function getRun(request: HttpRequest, context: InvocationContext): 
 
     const res = await client.get(`/structure-runs/${runId}`);
     const data = res.data;
-    res.data['session_id'] = res.data['args'][res.data['args'].length - 1];
-    context.log(`Griptape response: ${JSON.stringify(data)}`);
 
     return {
         jsonBody: data,
-        status: (data["status"] === 'SUCCEEDED' || data["status"] === 'FAILED') ? 200 : 202,
+        status: (data["status"] === 'SUCCEEDED' || data["status"] === 'FAILED' || data['output']) ? 200 : 202,
         headers: {
             'Retry-After': '1',
             'Location': request.url,
@@ -74,4 +88,11 @@ app.http('griptapeGetRun', {
     route: 'runs/{runId}',
     authLevel: 'anonymous',
     handler: getRun
+});
+
+app.http('griptapeCreateThread', {
+    methods: ['POST'],
+    route: 'threads',
+    authLevel: 'anonymous',
+    handler: createThread
 });
