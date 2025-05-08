@@ -40,9 +40,13 @@ export async function createRun(request: HttpRequest, context: InvocationContext
 
     const body = {
         args: req.args,
-        env: {
-            [GRIPTAPE_API_SESSION_VAR]: req.sessionId,
-        }
+        env_vars: [
+            {
+                name: GRIPTAPE_API_SESSION_VAR,
+                source: "manual",
+                value: req.sessionId,
+            }
+        ]
     }
 
     const res = await client.post(`/structures/${GRIPTAPE_APP_ID}/runs`, body);
